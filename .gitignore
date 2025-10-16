@@ -1,0 +1,13 @@
+# Node
+node_modules/
+.next/
+.env
+*.log
+
+# Build and cache
+dist/
+out/
+
+# System files
+.DS_Store
+Thumbs.db

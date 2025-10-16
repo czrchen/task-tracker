@@ -1,0 +1,67 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1️⃣ Semester Table
+model Semester {
+  id          String        @id @default(uuid())
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime      @default(now())
+
+  // Relations
+  courseEvents CourseEvent[]
+  events         Event[]
+  users         User[]
+}
+
+// 2️⃣ CourseEvent Table
+model CourseEvent {
+  id          String   @id @default(uuid())
+  courseCode  String
+  courseName  String
+  type        String
+  dayOfWeek   Int
+  startTime   DateTime @db.Time
+  endTime     DateTime @db.Time
+  room        String?
+  weeksActive Int[]
+
+  semester    Semester   @relation(fields: [semesterId], references: [id])
+  semesterId  String
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// 3️⃣ Event Table
+model Event {
+  id           String     @id @default(uuid())
+  title        String
+  description  String?
+  type         String      // "Exam" | "Assignment Due" | "Event" | "Task"
+  status       String      @default("pending") // e.g., "pending" or "done"
+  eventDate    DateTime    // specific date of the event
+  startTime    DateTime?   // optional start time
+  endTime      DateTime?   // optional end time
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  semester     Semester?   @relation(fields: [semesterId], references: [id])
+  semesterId   String?
+}
+
+model User {
+  id             String    @id @default(uuid())
+  name           String
+  semester Semester? @relation(fields: [semesterId], references: [id])
+  semesterId  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
