@@ -180,6 +180,7 @@ export default function CalendarTab({
           <AddEventDialog
             selectedSemester={selectedSemester}
             onEventAdded={onEventAdded}
+            defaultDate={selectedDate}
           />
         </div>
 
@@ -313,31 +314,40 @@ export default function CalendarTab({
 
             {/* ✅ color-coded event labels */}
             <div className="space-y-1">
-              {dayEvents.slice(0, 2).map((event) => (
-                <div
-                  key={event.id}
-                  className={cn(
-                    "text-xs p-1 rounded truncate border border-primary/20",
-                    event.type === "Tutorial"
-                      ? "bg-tutorial"
-                      : event.type === "Lecturer"
-                      ? "bg-lecturer"
-                      : event.type === "Task"
-                      ? "bg-task"
-                      : event.type === "Event"
-                      ? "bg-event"
-                      : event.type === "Assignment Due"
-                      ? "bg-deadline"
-                      : event.type === "Exam"
-                      ? "bg-deadline"
-                      : "bg-gray-100 text-gray-700 border-gray-300"
-                  )}
-                >
-                  {`${formatTime(
-                    event.startTime ? event.startTime : event.endTime
-                  )} ${event.courseName || event.title}`}
-                </div>
-              ))}
+              {/* ✅ Sort so Assignment Due & Exam appear first */}
+              {dayEvents
+                .sort((a, b) => {
+                  const priority = (type: string) =>
+                    type === "Assignment Due" ? 1 : type === "Exam" ? 2 : 3;
+                  return priority(a.type) - priority(b.type);
+                })
+                .slice(0, 2)
+                .map((event) => (
+                  <div
+                    key={event.id}
+                    className={cn(
+                      "text-xs p-1 rounded truncate border",
+                      event.type === "Tutorial"
+                        ? "bg-tutorial"
+                        : event.type === "Lecturer"
+                        ? "bg-lecturer"
+                        : event.type === "Task"
+                        ? "bg-task"
+                        : event.type === "Event"
+                        ? "bg-event"
+                        : event.type === "Assignment Due"
+                        ? "bg-deadline"
+                        : event.type === "Exam"
+                        ? "bg-deadline"
+                        : "bg-gray-100 text-gray-700 border-gray-300"
+                    )}
+                  >
+                    {`${formatTime(
+                      event.startTime ? event.startTime : event.endTime
+                    )} ${event.courseName || event.title}`}
+                  </div>
+                ))}
+
               {dayEvents.length > 2 && (
                 <div className="text-xs text-muted-foreground text-center">
                   +{dayEvents.length - 2} more
@@ -387,6 +397,7 @@ export default function CalendarTab({
             <AddEventDialog
               selectedSemester={selectedSemester}
               onEventAdded={onEventAdded}
+              defaultDate={selectedDate}
             />
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,9 +26,11 @@ import { toast } from "sonner";
 export default function AddEventDialog({
   selectedSemester,
   onEventAdded,
+  defaultDate,
 }: {
   selectedSemester?: any;
   onEventAdded?: () => void;
+  defaultDate?: Date | null;
 }) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -39,6 +41,14 @@ export default function AddEventDialog({
     endTime: "",
     description: "",
   });
+
+  useEffect(() => {
+    if (defaultDate) {
+      // 🧠 Convert Date → yyyy-MM-dd for <input type="date">
+      const formatted = defaultDate.toLocaleDateString("en-CA");
+      setFormData((prev) => ({ ...prev, date: formatted }));
+    }
+  }, [defaultDate]);
 
   const eventTypes = ["Task", "Event", "Assignment Due", "Exam"];
 
