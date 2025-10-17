@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   format,
   startOfMonth,
@@ -8,14 +8,23 @@ import {
   startOfWeek,
   endOfWeek,
   addDays,
+  addWeeks,
   addMonths,
   subMonths,
   isSameMonth,
   isSameDay,
+  isSameWeek,
   isToday,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import EventCard from "@/components/EventCard";
 import AddEventDialog from "@/components/AddEventDialog";
@@ -31,6 +40,16 @@ export default function CalendarTab({
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [isMobile, setIsMobile] = useState(false);
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
+
+  // 🧠 Detect mobile view
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 850);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // 🕒 Helper to format event times
   const formatTime = (dateObj: any) => {
@@ -44,41 +63,171 @@ export default function CalendarTab({
     return `${displayHour}:${displayMin} ${ampm}`;
   };
 
-  // 🗓️ Month setup
+  // =============================
+  // 📅 MONTH + WEEK CALCULATION
+  // =============================
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
+
+  // Create list of all weeks in current month
+  const weeksInMonth: { start: Date; end: Date }[] = [];
+  let weekStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  while (weekStart <= monthEnd) {
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 0 });
+    weeksInMonth.push({ start: weekStart, end: weekEnd });
+    weekStart = addWeeks(weekStart, 1);
+  }
+
+  // Selected week info
+  const currentWeek = weeksInMonth[selectedWeekIndex] || weeksInMonth[0];
+  const currentWeekStart = currentWeek.start;
+  const currentWeekEnd = currentWeek.end;
+
+  // Filter events for current week
+  const weekEvents = events.filter((e) =>
+    isSameWeek(e.eventDate, currentWeekStart, { weekStartsOn: 0 })
+  );
+
+  // Filter days that actually have events
+  const daysWithEvents = Array.from({ length: 7 })
+    .map((_, i) => addDays(currentWeekStart, i))
+    .filter((day) => weekEvents.some((e) => isSameDay(e.eventDate, day)))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  // Auto-select first available day when switching week
+  useEffect(() => {
+    if (
+      daysWithEvents.length > 0 &&
+      !daysWithEvents.some((d) => isSameDay(d, selectedDate!))
+    ) {
+      setSelectedDate(daysWithEvents[0]);
+    }
+  }, [weekEvents.length, selectedWeekIndex]);
+
+  // Events for selected day
+  const selectedDayEvents = selectedDate
+    ? weekEvents.filter((e) => isSameDay(e.eventDate, selectedDate))
+    : [];
+
+  // Navigation
+  const nextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
+    setSelectedWeekIndex(0);
+  };
+  const prevMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+    setSelectedWeekIndex(0);
+  };
+
+  // =============================
+  // 📱 MOBILE VIEW
+  // =============================
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        {/* Month / Year Selector */}
+        <div className="flex items-center justify-between">
+          <Button variant="outline" size="icon" onClick={prevMonth}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <h2 className="text-lg font-semibold">
+            {format(currentMonth, "MMMM yyyy")}
+          </h2>
+          <Button variant="outline" size="icon" onClick={nextMonth}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Week Selector */}
+        <div className="flex items-center justify-between">
+          <Select
+            value={selectedWeekIndex.toString()}
+            onValueChange={(val) => setSelectedWeekIndex(Number(val))}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Select Week" />
+            </SelectTrigger>
+            <SelectContent>
+              {weeksInMonth.map((week, idx) => (
+                <SelectItem key={idx} value={idx.toString()}>
+                  ({format(week.start, "d MMM")}–{format(week.end, "d MMM")})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <AddEventDialog
+            selectedSemester={selectedSemester}
+            onEventAdded={onEventAdded}
+          />
+        </div>
+
+        {/* Week Tabs — only days that have events */}
+        {daysWithEvents.length > 0 ? (
+          <div
+            className="grid border-b border-border pb-1 gap-1"
+            style={{
+              gridTemplateColumns: `repeat(${daysWithEvents.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {daysWithEvents.map((day) => (
+              <button
+                key={day.toISOString()}
+                onClick={() => setSelectedDate(day)}
+                className={cn(
+                  "py-2 rounded-lg font-medium transition text-sm flex flex-col items-center justify-center",
+                  isSameDay(day, selectedDate!)
+                    ? "bg-black text-white"
+                    : "bg-muted text-muted-foreground hover:bg-accent"
+                )}
+              >
+                <span className="font-semibold">{format(day, "EEE")}</span>
+                <span className="text-[11px] opacity-80">
+                  {format(day, "d")}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8">
+            No events this week
+          </p>
+        )}
+
+        {/* Events for Selected Day */}
+        {daysWithEvents.length > 0 && (
+          <div>
+            <h3 className="text-base font-bold mb-2">
+              {format(selectedDate!, "EEEE, MMM d")}
+            </h3>
+            {selectedDayEvents.length > 0 ? (
+              <div className="space-y-3">
+                {selectedDayEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    variant="compact"
+                    showCheckbox
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No events for this day
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // =============================
+  // 💻 DESKTOP VIEW (full calendar)
+  // =============================
   const startDate = startOfWeek(monthStart, { weekStartsOn: 0 });
   const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
 
-  // 🔁 Navigation
-  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
-  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-
-  // ✅ Header
-  const renderHeader = () => (
-    <div className="flex items-center justify-between mb-6">
-      <h1 className="text-3xl font-bold text-foreground">
-        {format(currentMonth, "MMMM yyyy")}
-      </h1>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={prevMonth}>
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        <Button variant="outline" onClick={() => setCurrentMonth(new Date())}>
-          {format(currentMonth, "MMMM yyyy")}
-        </Button>
-        <Button variant="outline" size="icon" onClick={nextMonth}>
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-        <AddEventDialog
-          selectedSemester={selectedSemester}
-          onEventAdded={onEventAdded}
-        />
-      </div>
-    </div>
-  );
-
-  // ✅ Days Row
   const renderDays = () => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     return (
@@ -95,7 +244,6 @@ export default function CalendarTab({
     );
   };
 
-  // ✅ Calendar Cells
   const renderCells = () => {
     const rows = [];
     let days = [];
@@ -105,29 +253,9 @@ export default function CalendarTab({
       for (let i = 0; i < 7; i++) {
         const formattedDate = format(day, "d");
         const cloneDay = day;
-        // ✅ Include events (except completed) and sort by priority
-        const dayEvents = events
-          .filter(
-            (e) =>
-              isSameDay(e.eventDate, cloneDay) &&
-              (e.status === undefined || e.status !== "completed")
-          )
-          .sort((a, b) => {
-            const priority = (type: string) => {
-              if (type === "Assignment Due") return 1;
-              if (type === "Exam") return 2;
-              return 3; // others follow normal time order
-            };
-
-            const pa = priority(a.type);
-            const pb = priority(b.type);
-            if (pa !== pb) return pa - pb;
-
-            // Same priority → sort by start time
-            const startA = a.startTime ? new Date(a.startTime).getTime() : 0;
-            const startB = b.startTime ? new Date(b.startTime).getTime() : 0;
-            return startA - startB;
-          });
+        const dayEvents = events.filter((e) =>
+          isSameDay(e.eventDate, cloneDay)
+        );
 
         days.push(
           <div
@@ -162,6 +290,7 @@ export default function CalendarTab({
               )}
             </div>
 
+            {/* ✅ color-coded event labels */}
             <div className="space-y-1">
               {dayEvents.slice(0, 2).map((event) => (
                 <div
@@ -209,25 +338,43 @@ export default function CalendarTab({
     return <div className="space-y-2">{rows}</div>;
   };
 
-  // ✅ Events of selected date
   const selectedDateEvents = selectedDate
-    ? events.filter(
-        (e) =>
-          isSameDay(e.eventDate, selectedDate) &&
-          (e.status === undefined || e.status !== "completed")
-      )
+    ? events.filter((e) => isSameDay(e.eventDate, selectedDate))
     : [];
 
   return (
     <div className="grid lg:grid-cols-[1fr,400px] gap-6">
       {/* Calendar Section */}
       <section>
-        {renderHeader()}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-foreground">
+            {format(currentMonth, "MMMM yyyy")}
+          </h1>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={prevMonth}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setCurrentMonth(new Date())}
+            >
+              Today
+            </Button>
+            <Button variant="outline" size="icon" onClick={nextMonth}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <AddEventDialog
+              selectedSemester={selectedSemester}
+              onEventAdded={onEventAdded}
+            />
+          </div>
+        </div>
+
         {renderDays()}
         {renderCells()}
       </section>
 
-      {/* Sidebar with selected date events */}
+      {/* Sidebar */}
       <aside className="lg:sticky lg:top-24 h-fit">
         <div className="p-6 rounded-xl gradient-card border border-border shadow-card">
           <h2 className="text-xl font-bold mb-4">
@@ -243,7 +390,6 @@ export default function CalendarTab({
                   event={event}
                   variant="compact"
                   showCheckbox
-                  onEventAdded={onEventAdded}
                 />
               ))}
             </div>
