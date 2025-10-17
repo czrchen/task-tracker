@@ -48,7 +48,7 @@ export default function CompletedTab({ events }: { events: any[] }) {
   });
 
   return (
-    <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-2">
       <h1 className="text-3xl font-bold mb-4 flex items-center gap-2">
         <CheckCircle2 className="text-primary" /> Completed Tasks
       </h1>

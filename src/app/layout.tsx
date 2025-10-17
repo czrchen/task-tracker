@@ -22,7 +22,7 @@ export default function RootLayout({
         />
 
         {/* ✅ Global content wrapper */}
-        <main className="px-6 md:px-10 lg:px-20 mb-[24px] mt-[20px] md:mt-0">
+        <main className="px-3 sm:px-4 md:px-10 lg:px-20 mb-[24px] mt-[20px] md:mt-0">
           {children}
         </main>
       </body>
