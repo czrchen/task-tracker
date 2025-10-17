@@ -69,14 +69,35 @@ export default function CalendarTab({
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
 
-  // Create list of all weeks in current month
+  // ✅ Create only current and upcoming weeks in this month
   const weeksInMonth: { start: Date; end: Date }[] = [];
   let weekStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const today = new Date();
+
   while (weekStart <= monthEnd) {
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 0 });
-    weeksInMonth.push({ start: weekStart, end: weekEnd });
+
+    // Only include weeks that end today or later (skip fully past weeks)
+    if (weekEnd >= startOfWeek(today, { weekStartsOn: 0 })) {
+      weeksInMonth.push({ start: weekStart, end: weekEnd });
+    }
+
     weekStart = addWeeks(weekStart, 1);
   }
+
+  // ✅ Default to current week if within the month, otherwise first available future week
+  useEffect(() => {
+    const currentWeekIndex = weeksInMonth.findIndex((week) =>
+      isSameWeek(today, week.start, { weekStartsOn: 0 })
+    );
+
+    if (currentWeekIndex !== -1) {
+      setSelectedWeekIndex(currentWeekIndex);
+    } else {
+      // if all weeks are future, pick the first one
+      setSelectedWeekIndex(0);
+    }
+  }, [currentMonth]);
 
   // Selected week info
   const currentWeek = weeksInMonth[selectedWeekIndex] || weeksInMonth[0];
@@ -297,9 +318,9 @@ export default function CalendarTab({
                   key={event.id}
                   className={cn(
                     "text-xs p-1 rounded truncate border border-primary/20",
-                    event.type === "Tutorial Class"
+                    event.type === "Tutorial"
                       ? "bg-tutorial"
-                      : event.type === "Lecturer Class"
+                      : event.type === "Lecturer"
                       ? "bg-lecturer"
                       : event.type === "Task"
                       ? "bg-task"

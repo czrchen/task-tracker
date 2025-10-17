@@ -40,8 +40,8 @@ export default function EventCard({
 
   // ✅ Type → color
   const typeColorMap: Record<string, string> = {
-    "Tutorial Class": "bg-tutorial", // 🟡 soft cream (#fbf7e8)
-    "Lecturer Class": "bg-lecturer", // 🔴 soft pink (#fbebeb)
+    "Tutorial": "bg-tutorial", // 🟡 soft cream (#fbf7e8)
+    "Lecturer": "bg-lecturer", // 🔴 soft pink (#fbebeb)
     Task: "bg-task", // 🔵 pastel blue (#e2f1f7)
     Event: "bg-event", // 🫒 olive green (#e9f5e1)
     "Assignment Due": "bg-deadline", // 🔴 solid red (#d32f2f, white text)
