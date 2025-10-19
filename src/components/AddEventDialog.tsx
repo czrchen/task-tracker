@@ -52,7 +52,7 @@ export default function AddEventDialog({
     }
   }, [defaultDate]);
 
-  const eventTypes = ["Task", "Event", "Assignment", "Exam"];
+  const eventTypes = ["Task", "Event", "Due", "Exam"];
 
   // ✅ Helper — add UTC offset to counteract backend's timezone conversion
   function buildLocalDateTime(date: string, time: string) {
@@ -75,7 +75,7 @@ export default function AddEventDialog({
 
     try {
       const eventStatus =
-        formData.type === "Task" || formData.type === "Assignment"
+        formData.type === "Task" || formData.type === "Due"
           ? "pending"
           : "none";
 

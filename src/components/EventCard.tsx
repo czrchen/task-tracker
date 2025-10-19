@@ -44,7 +44,7 @@ export default function EventCard({
     Lecturer: "bg-lecturer", // 🔴 soft pink (#fbebeb)
     Task: "bg-task", // 🔵 pastel blue (#e2f1f7)
     Event: "bg-event", // 🫒 olive green (#e9f5e1)
-    Assignment: "bg-deadline", // 🔴 solid red (#d32f2f, white text)
+    Due: "bg-deadline", // 🔴 solid red (#d32f2f, white text)
     Exam: "bg-deadline", // 🔴 same solid red for exams
   };
 
@@ -55,7 +55,7 @@ export default function EventCard({
   const showCheckboxForType =
     showCheckbox &&
     event.type &&
-    (event.type.trim() === "Task" || event.type.trim() === "Assignment");
+    (event.type.trim() === "Task" || event.type.trim() === "Due");
 
   const isClass =
     event.type === "Tutorial Class" || event.type === "Lecturer Class";

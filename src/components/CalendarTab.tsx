@@ -348,10 +348,10 @@ export default function CalendarTab({
                   const priority = (event: any) => {
                     if (
                       event.status === "completed" &&
-                      event.type === "Assignment"
+                      event.type === "Due"
                     )
                       return 99; // 🟢 push completed ones to bottom
-                    if (event.type === "Assignment") return 1;
+                    if (event.type === "Due") return 1;
                     if (event.type === "Exam") return 2;
                     return 3; // other types
                   };
@@ -371,7 +371,7 @@ export default function CalendarTab({
                         ? "bg-task"
                         : event.type === "Event"
                         ? "bg-event"
-                        : event.type === "Assignment"
+                        : event.type === "Due"
                         ? "bg-deadline"
                         : event.type === "Exam"
                         ? "bg-deadline"

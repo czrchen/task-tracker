@@ -184,7 +184,7 @@ export default function DashboardTab({
               {(() => {
                 const nearestAssignment = localEvents
                   .filter(
-                    (e) => e.type === "Assignment" && e.status !== "completed"
+                    (e) => e.type === "Due" && e.status !== "completed"
                   )
                   .sort(
                     (a, b) =>
@@ -340,7 +340,7 @@ function WeekBreakdownCard({
   const typeLabels: Record<string, string> = {
     "Lecturer Class": "Lecture",
     "Tutorial Class": "Tutorial",
-    Assignment: "Assignment",
+    Due: "Due",
     Task: "Task",
     Event: "Event",
     Exam: "Exam",
@@ -349,7 +349,7 @@ function WeekBreakdownCard({
   const typeColors: Record<string, string> = {
     "Lecturer Class": "text-yellow-600",
     "Tutorial Class": "text-green-600",
-    Assignment: "text-red-600",
+    Due: "text-red-600",
     Task: "text-blue-600",
     Event: "text-purple-600",
     Exam: "text-red-700",
