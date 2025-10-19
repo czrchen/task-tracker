@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, Trash2, Loader2 } from "lucide-react";
+import { Clock, Trash2, Loader2, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner"; // ✅ nice notification feedback
@@ -40,11 +40,11 @@ export default function EventCard({
 
   // ✅ Type → color
   const typeColorMap: Record<string, string> = {
-    "Tutorial": "bg-tutorial", // 🟡 soft cream (#fbf7e8)
-    "Lecturer": "bg-lecturer", // 🔴 soft pink (#fbebeb)
+    Tutorial: "bg-tutorial", // 🟡 soft cream (#fbf7e8)
+    Lecturer: "bg-lecturer", // 🔴 soft pink (#fbebeb)
     Task: "bg-task", // 🔵 pastel blue (#e2f1f7)
     Event: "bg-event", // 🫒 olive green (#e9f5e1)
-    "Assignment Due": "bg-deadline", // 🔴 solid red (#d32f2f, white text)
+    Assignment: "bg-deadline", // 🔴 solid red (#d32f2f, white text)
     Exam: "bg-deadline", // 🔴 same solid red for exams
   };
 
@@ -55,7 +55,7 @@ export default function EventCard({
   const showCheckboxForType =
     showCheckbox &&
     event.type &&
-    (event.type.trim() === "Task" || event.type.trim() === "Assignment Due");
+    (event.type.trim() === "Task" || event.type.trim() === "Assignment");
 
   const isClass =
     event.type === "Tutorial Class" || event.type === "Lecturer Class";
@@ -147,14 +147,22 @@ export default function EventCard({
 
         {/* Right */}
         <div className="flex items-center gap-3">
-          {/* Task checkbox */}
+          {/* Task status indicator */}
           {showCheckboxForType && (
-            <input
-              type="checkbox"
-              className="w-4 h-4 cursor-pointer"
-              disabled={loadingAction}
-              onChange={handleMarkComplete}
-            />
+            <>
+              {event.status === "completed" ? (
+                // ✅ Show green tick if completed
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+              ) : (
+                // ☐ Show checkbox if not completed
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 cursor-pointer accent-primary"
+                  disabled={loadingAction}
+                  onChange={handleMarkComplete}
+                />
+              )}
+            </>
           )}
 
           {/* Delete button */}

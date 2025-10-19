@@ -27,10 +27,12 @@ export default function AddEventDialog({
   selectedSemester,
   onEventAdded,
   defaultDate,
+  onTemporaryEvent,
 }: {
   selectedSemester?: any;
   onEventAdded?: () => void;
   defaultDate?: Date | null;
+  onTemporaryEvent?: (tempEvent: any) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -50,7 +52,7 @@ export default function AddEventDialog({
     }
   }, [defaultDate]);
 
-  const eventTypes = ["Task", "Event", "Assignment Due", "Exam"];
+  const eventTypes = ["Task", "Event", "Assignment", "Exam"];
 
   // ✅ Helper — add UTC offset to counteract backend's timezone conversion
   function buildLocalDateTime(date: string, time: string) {
@@ -73,7 +75,7 @@ export default function AddEventDialog({
 
     try {
       const eventStatus =
-        formData.type === "Task" || formData.type === "Assignment Due"
+        formData.type === "Task" || formData.type === "Assignment"
           ? "pending"
           : "none";
 
@@ -106,6 +108,23 @@ export default function AddEventDialog({
       });
 
       if (!response.ok) throw new Error("Failed to create event");
+
+      // 🧠 1. Create a temporary event
+      const tempId = `temp-${Math.random().toString(36).substr(2, 9)}`;
+      const tempEvent = {
+        id: tempId,
+        title: formData.name,
+        description: formData.description,
+        type: formData.type,
+        eventDate: adjustedEventDate.toISOString(),
+        startTime: startDateTime,
+        endTime: endDateTime,
+        status: eventStatus,
+        semesterId: selectedSemester?.id,
+      };
+
+      // ✅ Push it instantly to UI
+      onTemporaryEvent?.(tempEvent);
 
       toast.success("Event added successfully!", {
         description: `${formData.name} (${formData.type}) has been added for ${formData.date}.`,

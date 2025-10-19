@@ -1,6 +1,8 @@
 "use client";
 
 import { Calendar as CalendarIcon, Clock, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   format,
   startOfDay,
@@ -8,8 +10,8 @@ import {
   isSameDay,
   isSameWeek,
 } from "date-fns";
-import { toast } from "sonner";
 import EventCard from "@/components/EventCard";
+import Upcoming from "@/components/Upcoming"; // updated import
 
 export default function DashboardTab({
   user,
@@ -23,7 +25,29 @@ export default function DashboardTab({
   onEventAdded?: () => void;
 }) {
   const today = startOfDay(new Date());
-  const now = new Date(); // current time
+  const now = new Date(); // current UTC time
+  const [localEvents, setLocalEvents] = useState(events);
+
+  useEffect(() => {
+    setLocalEvents(events);
+  }, [events]);
+
+  // 🕒 Helper — use UTC just like CalendarTab
+  const getEndDateTimeUTC = (event: any) => {
+    if (!event.endTime) return null;
+    const endDateTime = new Date(event.eventDate);
+    const end = new Date(event.endTime);
+    endDateTime.setUTCHours(end.getUTCHours(), end.getUTCMinutes());
+    return endDateTime;
+  };
+
+  const getStartDateTimeUTC = (event: any) => {
+    if (!event.startTime) return null;
+    const startDateTime = new Date(event.eventDate);
+    const start = new Date(event.startTime);
+    startDateTime.setUTCHours(start.getUTCHours(), start.getUTCMinutes());
+    return startDateTime;
+  };
 
   // ✅ Calculate current week
   const currentWeek =
@@ -31,62 +55,72 @@ export default function DashboardTab({
     differenceInCalendarWeeks(
       new Date(),
       new Date(selectedSemester.startDate),
-      { weekStartsOn: 1 }
+      { weekStartsOn: 0 }
     ) + 1;
 
-  // ✅ Today events — same day + not yet ended
-  const todayEvents = events
+  // ✅ Today events — same logic as calendar (UTC)
+  const todayEvents = localEvents
     .filter((e) => {
       if (!e.eventDate) return false;
-      if (e.status && e.status === "completed") return false;
+      if (e.status === "completed") return false;
 
-      const endTime = e.endTime ? new Date(e.endTime) : null;
-      const endDateTime = new Date(e.eventDate);
-
-      if (endTime) {
-        endDateTime.setHours(endTime.getHours(), endTime.getMinutes());
-      }
-
-      // Show if event is today and not ended
-      return isSameDay(today, e.eventDate) && (!endTime || endDateTime > now);
+      const endDateTime = getEndDateTimeUTC(e);
+      // same-day check uses local but consistent to e.eventDate (which is UTC-based)
+      return (
+        isSameDay(today, e.eventDate) && (!endDateTime || endDateTime > now)
+      );
     })
     .sort((a, b) => {
-      const startA = new Date(a.startTime);
-      const startB = new Date(b.startTime);
+      const startA = getStartDateTimeUTC(a);
+      const startB = getStartDateTimeUTC(b);
+      if (!startA || !startB) return 0;
       return startA.getTime() - startB.getTime();
     });
 
-  // ✅ Upcoming events this week — after now
-  const upcomingEvents = events
+  // ✅ Upcoming events this week — same UTC comparison
+  const upcomingEvents = localEvents
     .filter((e) => {
       if (!e.eventDate) return false;
-      if (e.status && e.status === "completed") return false;
+      if (e.status === "completed") return false;
 
-      const startTime = e.startTime ? new Date(e.startTime) : null;
-      const startDateTime = new Date(e.eventDate);
-
-      if (startTime) {
-        startDateTime.setHours(startTime.getHours(), startTime.getMinutes());
-      }
-
-      // Must be this week and in the future
+      const startDateTime = getStartDateTimeUTC(e);
       return (
-        isSameWeek(e.eventDate, now, { weekStartsOn: 1 }) && startDateTime > now
+        isSameWeek(e.eventDate, now, { weekStartsOn: 0 }) &&
+        startDateTime &&
+        startDateTime > now
       );
     })
     .sort((a, b) => {
       const dateDiff = a.eventDate.getTime() - b.eventDate.getTime();
       if (dateDiff !== 0) return dateDiff;
-
-      const startA = new Date(a.startTime);
-      const startB = new Date(b.startTime);
+      const startA = getStartDateTimeUTC(a);
+      const startB = getStartDateTimeUTC(b);
+      if (!startA || !startB) return 0;
       return startA.getTime() - startB.getTime();
     });
 
-  // ✅ Total events in this week
-  const thisWeekTotal = events.filter((e) =>
-    isSameWeek(e.eventDate, now, { weekStartsOn: 1 })
-  ).length;
+  // 🧾 Breakdown by type for this week
+  const thisWeekEvents = localEvents.filter((e) =>
+    isSameWeek(e.eventDate, now, { weekStartsOn: 0 })
+  );
+
+  const typeCounts = thisWeekEvents.reduce((acc: any, e: any) => {
+    const type = e.type || "Other";
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {});
+
+  // ✅ Triggered only after successful PATCH (from EventCard)
+  const handleCompleteTask = (eventId: string) => {
+    setLocalEvents((prev) =>
+      prev.map((e) => (e.id === eventId ? { ...e, status: "completed" } : e))
+    );
+  };
+
+  // ✅ Triggered only after successful DELETE (from EventCard)
+  const handleDeleteTask = (eventId: string) => {
+    setLocalEvents((prev) => prev.filter((e) => e.id !== eventId));
+  };
 
   return (
     <div>
@@ -128,16 +162,96 @@ export default function DashboardTab({
           value={todayEvents.length}
           icon={<Clock />}
         />
-        <StatCard
+        <WeekBreakdownCard
           title="This Week"
-          value={thisWeekTotal}
+          counts={typeCounts}
           icon={<CalendarIcon />}
         />
-        <StatCard
-          title="Upcoming"
-          value={upcomingEvents.length}
-          icon={<TrendingUp />}
-        />
+
+        <div className="p-6 rounded-xl gradient-card border border-border shadow-card">
+          <Tabs defaultValue="assignment" className="w-full">
+            <TabsList className="grid grid-cols-2 w-full mb-3">
+              <TabsTrigger value="assignment" className="text-xs">
+                Next Assignment
+              </TabsTrigger>
+              <TabsTrigger value="exam" className="text-xs">
+                Exam
+              </TabsTrigger>
+            </TabsList>
+
+            {/* 📝 Next Assignment Tab */}
+            <TabsContent value="assignment">
+              {(() => {
+                const nearestAssignment = localEvents
+                  .filter(
+                    (e) => e.type === "Assignment" && e.status !== "completed"
+                  )
+                  .sort(
+                    (a, b) =>
+                      new Date(a.eventDate).getTime() -
+                      new Date(b.eventDate).getTime()
+                  )[0];
+
+                return nearestAssignment ? (
+                  <div className="text-center">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                      {nearestAssignment.title || "Assignment Due"}
+                    </h3>
+                    <p className="text-2xl font-bold text-foreground">
+                      {format(nearestAssignment.eventDate, "d MMM")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {nearestAssignment.endTime
+                        ? format(nearestAssignment.endTime, "h:mm a")
+                        : "No time set"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground text-sm">
+                    No upcoming assignments
+                  </div>
+                );
+              })()}
+            </TabsContent>
+
+            {/* 🎓 Exam Tab */}
+            <TabsContent value="exam">
+              {(() => {
+                const nearestExam = localEvents
+                  .filter((e) => e.type === "Exam")
+                  .sort(
+                    (a, b) =>
+                      new Date(a.eventDate).getTime() -
+                      new Date(b.eventDate).getTime()
+                  )[0];
+
+                return nearestExam ? (
+                  <div className="text-center">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                      {nearestExam.title || "Exam"}
+                    </h3>
+                    <p className="text-2xl font-bold text-foreground">
+                      {format(nearestExam.eventDate, "d MMM")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {nearestExam.startTime
+                        ? `${format(nearestExam.startTime, "h:mm a")} - ${
+                            nearestExam.endTime
+                              ? format(nearestExam.endTime, "h:mm a")
+                              : "N/A"
+                          }`
+                        : "No time set"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground text-sm">
+                    No upcoming exams
+                  </div>
+                );
+              })()}
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
 
       {/* Today's Schedule */}
@@ -150,6 +264,8 @@ export default function DashboardTab({
                 event={event}
                 showCheckbox
                 onEventAdded={onEventAdded}
+                onComplete={handleCompleteTask}
+                onDelete={handleDeleteTask}
               />
             ))}
           </div>
@@ -159,8 +275,8 @@ export default function DashboardTab({
       </Section>
 
       {/* Upcoming This Week */}
-      <Section title="Upcoming This Week">
-        {upcomingEvents.length > 0 ? (
+      {/* <Section title="Upcoming This Week"> */}
+      {/* {upcomingEvents.length > 0 ? (
           <div className="space-y-3">
             {upcomingEvents.map((event) => (
               <div key={event.id} className="flex items-center gap-3">
@@ -185,8 +301,16 @@ export default function DashboardTab({
           </div>
         ) : (
           <Empty message="No upcoming events this week" />
-        )}
-      </Section>
+        )} */}
+      <Upcoming
+        events={events}
+        onEventAdded={onEventAdded}
+        onComplete={handleCompleteTask}
+        onDelete={handleDeleteTask}
+        localEvents={localEvents}
+        setLocalEvents={setLocalEvents}
+      />
+      {/* </Section> */}
     </div>
   );
 }
@@ -200,6 +324,63 @@ function StatCard({ title, value, icon }: any) {
         <div className="text-primary">{icon}</div>
       </div>
       <p className="text-3xl font-bold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function WeekBreakdownCard({
+  title,
+  counts,
+  icon,
+}: {
+  title: string;
+  counts: Record<string, number>;
+  icon: any;
+}) {
+  const typeLabels: Record<string, string> = {
+    "Lecturer Class": "Lecture",
+    "Tutorial Class": "Tutorial",
+    Assignment: "Assignment",
+    Task: "Task",
+    Event: "Event",
+    Exam: "Exam",
+  };
+
+  const typeColors: Record<string, string> = {
+    "Lecturer Class": "text-yellow-600",
+    "Tutorial Class": "text-green-600",
+    Assignment: "text-red-600",
+    Task: "text-blue-600",
+    Event: "text-purple-600",
+    Exam: "text-red-700",
+  };
+
+  const activeTypes = Object.entries(counts).filter(([_, count]) => count > 0);
+
+  return (
+    <div className="p-6 rounded-xl gradient-card border border-border shadow-card">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+        <div className="text-primary">{icon}</div>
+      </div>
+
+      {activeTypes.length > 0 ? (
+        <ul className="space-y-1">
+          {activeTypes.map(([type, count]) => (
+            <li
+              key={type}
+              className={`flex items-center justify-between text-sm ${
+                typeColors[type] || "text-foreground"
+              }`}
+            >
+              <span>{typeLabels[type] || type}</span>
+              <span className="font-semibold">{count}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground text-sm">No events this week</p>
+      )}
     </div>
   );
 }

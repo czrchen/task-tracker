@@ -42,6 +42,11 @@ export default function CalendarTab({
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [isMobile, setIsMobile] = useState(false);
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
+  const [localEvents, setLocalEvents] = useState(events);
+
+  useEffect(() => {
+    setLocalEvents(events);
+  }, [events]);
 
   // 🧠 Detect mobile view
   useEffect(() => {
@@ -105,7 +110,7 @@ export default function CalendarTab({
   const currentWeekEnd = currentWeek.end;
 
   // Filter events for current week
-  const weekEvents = events.filter((e) =>
+  const weekEvents = localEvents.filter((e) =>
     isSameWeek(e.eventDate, currentWeekStart, { weekStartsOn: 0 })
   );
 
@@ -138,6 +143,25 @@ export default function CalendarTab({
   const prevMonth = () => {
     setCurrentMonth(subMonths(currentMonth, 1));
     setSelectedWeekIndex(0);
+  };
+
+  // ✅ Triggered only after successful PATCH (from EventCard)
+  const handleCompleteTask = (eventId: string) => {
+    setLocalEvents((prev) =>
+      prev.map((e) => (e.id === eventId ? { ...e, status: "completed" } : e))
+    );
+  };
+
+  // ✅ Triggered only after successful DELETE (from EventCard)
+  const handleDeleteTask = (eventId: string) => {
+    setLocalEvents((prev) => prev.filter((e) => e.id !== eventId));
+  };
+
+  const handleTemporaryEvent = (tempEvent: any) => {
+    setLocalEvents((prev) => {
+      // Otherwise add the temp one instantly
+      return [...prev, { ...tempEvent }];
+    });
   };
 
   // =============================
@@ -181,6 +205,7 @@ export default function CalendarTab({
             selectedSemester={selectedSemester}
             onEventAdded={onEventAdded}
             defaultDate={selectedDate}
+            onTemporaryEvent={handleTemporaryEvent}
           />
         </div>
 
@@ -230,6 +255,9 @@ export default function CalendarTab({
                     event={event}
                     variant="compact"
                     showCheckbox
+                    onEventAdded={onEventAdded}
+                    onComplete={handleCompleteTask}
+                    onDelete={handleDeleteTask}
                   />
                 ))}
               </div>
@@ -275,7 +303,7 @@ export default function CalendarTab({
       for (let i = 0; i < 7; i++) {
         const formattedDate = format(day, "d");
         const cloneDay = day;
-        const dayEvents = events.filter((e) =>
+        const dayEvents = localEvents.filter((e) =>
           isSameDay(e.eventDate, cloneDay)
         );
 
@@ -317,9 +345,17 @@ export default function CalendarTab({
               {/* ✅ Sort so Assignment Due & Exam appear first */}
               {dayEvents
                 .sort((a, b) => {
-                  const priority = (type: string) =>
-                    type === "Assignment Due" ? 1 : type === "Exam" ? 2 : 3;
-                  return priority(a.type) - priority(b.type);
+                  const priority = (event: any) => {
+                    if (
+                      event.status === "completed" &&
+                      event.type === "Assignment"
+                    )
+                      return 99; // 🟢 push completed ones to bottom
+                    if (event.type === "Assignment") return 1;
+                    if (event.type === "Exam") return 2;
+                    return 3; // other types
+                  };
+                  return priority(a) - priority(b);
                 })
                 .slice(0, 2)
                 .map((event) => (
@@ -335,7 +371,7 @@ export default function CalendarTab({
                         ? "bg-task"
                         : event.type === "Event"
                         ? "bg-event"
-                        : event.type === "Assignment Due"
+                        : event.type === "Assignment"
                         ? "bg-deadline"
                         : event.type === "Exam"
                         ? "bg-deadline"
@@ -370,7 +406,7 @@ export default function CalendarTab({
   };
 
   const selectedDateEvents = selectedDate
-    ? events.filter((e) => isSameDay(e.eventDate, selectedDate))
+    ? localEvents.filter((e) => isSameDay(e.eventDate, selectedDate))
     : [];
 
   return (
@@ -398,6 +434,7 @@ export default function CalendarTab({
               selectedSemester={selectedSemester}
               onEventAdded={onEventAdded}
               defaultDate={selectedDate}
+              onTemporaryEvent={handleTemporaryEvent}
             />
           </div>
         </div>
@@ -422,6 +459,9 @@ export default function CalendarTab({
                   event={event}
                   variant="compact"
                   showCheckbox
+                  onEventAdded={onEventAdded}
+                  onComplete={handleCompleteTask}
+                  onDelete={handleDeleteTask}
                 />
               ))}
             </div>

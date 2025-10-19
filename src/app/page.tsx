@@ -6,6 +6,7 @@ import CalendarTab from "@/components/CalendarTab";
 import CompletedTab from "@/components/CompletedTab";
 import { Calendar, LayoutDashboard, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { set } from "date-fns";
 
 // 🧠 Helper — generate all real calendar occurrences for a CourseEvent
 function generateEventOccurrences(event: any, semester: any) {
@@ -51,15 +52,14 @@ function generateEventOccurrences(event: any, semester: any) {
 export default function DashboardPage() {
   const [user, setUser] = useState<any | null>(null);
   const [selectedSemester, setSelectedSemester] = useState<any | null>(null);
-  const [events, setEvents] = useState<any[]>([]);
+  const [eventsForDashboard, setEventsForDashboard] = useState<any[]>([]);
+  const [eventsForCalendar, setEventsForCalendar] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // 🔁 Fetch all data
-  const fetchAll = async () => {
+  // 🔁 Dashboard → Only future events
+  const fetchDashboardEvents = async () => {
     try {
-      setLoading(true);
-
       const [userRes, semesterRes] = await Promise.all([
         fetch("/api/user/1"),
         fetch("/api/semesters"),
@@ -67,14 +67,13 @@ export default function DashboardPage() {
 
       const userData = await userRes.json();
       const semesters = await semesterRes.json();
-
       const semesterToUse = userData.semester || semesters[0];
       setUser(userData);
       setSelectedSemester(semesterToUse);
 
       const semesterId = semesterToUse?.id;
       if (!semesterId) {
-        setEvents([]);
+        setEventsForDashboard([]);
         return;
       }
 
@@ -82,14 +81,15 @@ export default function DashboardPage() {
         fetch(`/api/events?semesterId=${semesterId}`),
         fetch(`/api/addEvents?semesterId=${semesterId}`),
       ]);
+
       const courseData = await resCourse.json();
       const customData = await resCustom.json();
 
       const now = new Date();
 
       // 🧩 Generate course event dates
-      const allOccurrences = courseData.flatMap((event: any) =>
-        generateEventOccurrences(event, semesterToUse)
+      const allOccurrences = courseData.flatMap((eventsForDashboard: any) =>
+        generateEventOccurrences(eventsForDashboard, semesterToUse)
       );
 
       const normalizedCourseEvents = allOccurrences.map((e: any) => ({
@@ -117,36 +117,130 @@ export default function DashboardPage() {
 
       const combined = [...normalizedCourseEvents, ...normalizedCustomEvents];
 
-      // 🕒 Filter out past events
-      const futureEvents = combined.filter((event) => {
+      // ✅ Only future events
+      const filtered = combined.filter((eventsForDashboard) => {
+        const eventDateTime = new Date(eventsForDashboard.eventDate);
+        if (eventsForDashboard.endTime)
+          eventDateTime.setHours(
+            eventsForDashboard.endTime.getUTCHours(),
+            eventsForDashboard.endTime.getUTCMinutes()
+          );
+        else if (eventsForDashboard.startTime)
+          eventDateTime.setHours(
+            eventsForDashboard.startTime.getUTCHours(),
+            eventsForDashboard.startTime.getUTCMinutes()
+          );
+        return eventDateTime >= now;
+      });
+
+      setEventsForDashboard(filtered);
+    } catch (err) {
+      console.error("❌ Failed to fetch dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔁 Calendar → Include past events except Tutorial/Lecturer
+  const fetchCalendarEvents = async () => {
+    try {
+      const [userRes, semesterRes] = await Promise.all([
+        fetch("/api/user/1"),
+        fetch("/api/semesters"),
+      ]);
+
+      const userData = await userRes.json();
+      const semesters = await semesterRes.json();
+      const semesterToUse = userData.semester || semesters[0];
+      setUser(userData);
+      setSelectedSemester(semesterToUse);
+
+      const semesterId = semesterToUse?.id;
+      if (!semesterId) {
+        setEventsForCalendar([]);
+        return;
+      }
+
+      const [resCourse, resCustom] = await Promise.all([
+        fetch(`/api/events?semesterId=${semesterId}`),
+        fetch(`/api/addEvents?semesterId=${semesterId}`),
+      ]);
+
+      const courseData = await resCourse.json();
+      const customData = await resCustom.json();
+
+      const now = new Date();
+
+      const allOccurrences = courseData.flatMap((eventsForCalendar: any) =>
+        generateEventOccurrences(eventsForCalendar, semesterToUse)
+      );
+
+      const normalizedCourseEvents = allOccurrences.map((e: any) => ({
+        id: e.id,
+        title: e.courseName,
+        type: e.type,
+        eventDate: new Date(e.eventDate),
+        startTime: e.startTime ? new Date(e.startTime) : null,
+        endTime: e.endTime ? new Date(e.endTime) : null,
+        courseName: e.courseName,
+        courseCode: e.courseCode,
+        room: e.room,
+      }));
+
+      const normalizedCustomEvents = customData.map((e: any) => ({
+        id: e.id,
+        title: e.title,
+        type: e.type,
+        eventDate: new Date(e.eventDate),
+        startTime: e.startTime ? new Date(e.startTime) : null,
+        endTime: e.endTime ? new Date(e.endTime) : null,
+        description: e.description,
+        status: e.status,
+      }));
+
+      const combined = [...normalizedCourseEvents, ...normalizedCustomEvents];
+
+      // ✅ Include past events except classes
+      const filtered = combined.filter((event) => {
         const eventDateTime = new Date(event.eventDate);
-        if (event.endTime) {
+        if (event.endTime)
           eventDateTime.setHours(
             event.endTime.getUTCHours(),
             event.endTime.getUTCMinutes()
           );
-        } else if (event.startTime) {
+        else if (event.startTime)
           eventDateTime.setHours(
             event.startTime.getUTCHours(),
             event.startTime.getUTCMinutes()
           );
-        }
-        return eventDateTime >= now;
+
+        const isClass = event.type === "Tutorial" || event.type === "Lecturer";
+        return eventDateTime >= now || !isClass;
       });
 
-      setEvents(futureEvents);
+      setEventsForCalendar(filtered);
     } catch (err) {
-      console.error("❌ Failed to fetch data:", err);
+      console.error("❌ Failed to fetch calendar data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const firstfetch = async () => {
+    try {
+      setLoading(true);
+      await fetchDashboardEvents();
+      await fetchCalendarEvents();
+    } catch (error) {
+      console.error("Error in firstfetch:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAll();
+    firstfetch();
   }, []);
-
-  const update = async () => fetchAll();
 
   if (loading)
     return (
@@ -263,18 +357,24 @@ export default function DashboardPage() {
         <DashboardTab
           user={user}
           selectedSemester={selectedSemester}
-          events={events}
-          onEventAdded={update}
+          events={eventsForDashboard}
+          onEventAdded={() => {
+            fetchDashboardEvents(); // ✅ refresh events
+            fetchCalendarEvents();
+          }}
         />
       )}
       {activeTab === "calendar" && (
         <CalendarTab
           selectedSemester={selectedSemester}
-          events={events}
-          onEventAdded={update}
+          events={eventsForCalendar}
+          onEventAdded={() => {
+            fetchDashboardEvents(); // ✅ refresh events
+            fetchCalendarEvents();
+          }}
         />
       )}
-      {activeTab === "completed" && <CompletedTab events={events} />}
+      {activeTab === "completed" && <CompletedTab events={eventsForCalendar} />}
     </main>
   );
 }
