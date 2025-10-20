@@ -32,6 +32,16 @@ export default function DashboardTab({
     setLocalEvents(events);
   }, [events]);
 
+  const formatUTCTime = (dateObj: Date | null) => {
+    if (!dateObj) return "No time set";
+    const hours = dateObj.getUTCHours();
+    const minutes = dateObj.getUTCMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const displayHour = hours % 12 || 12;
+    const displayMin = minutes.toString().padStart(2, "0");
+    return `${displayHour}:${displayMin} ${ampm}`;
+  };
+
   // 🕒 Helper — use UTC just like CalendarTab
   const getEndDateTimeUTC = (event: any) => {
     if (!event.endTime) return null;
@@ -169,9 +179,9 @@ export default function DashboardTab({
         />
 
         <div className="p-6 rounded-xl gradient-card border border-border shadow-card">
-          <Tabs defaultValue="assignment" className="w-full">
+          <Tabs defaultValue="due" className="w-full">
             <TabsList className="grid grid-cols-2 w-full mb-3">
-              <TabsTrigger value="assignment" className="text-xs">
+              <TabsTrigger value="due" className="text-xs">
                 Next Assignment
               </TabsTrigger>
               <TabsTrigger value="exam" className="text-xs">
@@ -180,12 +190,10 @@ export default function DashboardTab({
             </TabsList>
 
             {/* 📝 Next Assignment Tab */}
-            <TabsContent value="assignment">
+            <TabsContent value="due">
               {(() => {
                 const nearestAssignment = localEvents
-                  .filter(
-                    (e) => e.type === "Due" && e.status !== "completed"
-                  )
+                  .filter((e) => e.type === "Due" && e.status !== "completed")
                   .sort(
                     (a, b) =>
                       new Date(a.eventDate).getTime() -
@@ -201,9 +209,7 @@ export default function DashboardTab({
                       {format(nearestAssignment.eventDate, "d MMM")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {nearestAssignment.endTime
-                        ? format(nearestAssignment.endTime, "h:mm a")
-                        : "No time set"}
+                      {formatUTCTime(getEndDateTimeUTC(nearestAssignment))}
                     </p>
                   </div>
                 ) : (
@@ -234,12 +240,10 @@ export default function DashboardTab({
                       {format(nearestExam.eventDate, "d MMM")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {nearestExam.startTime
-                        ? `${format(nearestExam.startTime, "h:mm a")} - ${
-                            nearestExam.endTime
-                              ? format(nearestExam.endTime, "h:mm a")
-                              : "N/A"
-                          }`
+                      {getStartDateTimeUTC(nearestExam)
+                        ? `${formatUTCTime(
+                            getStartDateTimeUTC(nearestExam)
+                          )} - ${formatUTCTime(getEndDateTimeUTC(nearestExam))}`
                         : "No time set"}
                     </p>
                   </div>
@@ -347,12 +351,12 @@ function WeekBreakdownCard({
   };
 
   const typeColors: Record<string, string> = {
-    "Lecturer Class": "text-yellow-600",
-    "Tutorial Class": "text-green-600",
-    Due: "text-red-600",
-    Task: "text-blue-600",
-    Event: "text-purple-600",
-    Exam: "text-red-700",
+    Tutorial: "text-[#ef3b68]", // matches .bg-tutorial (pink/red text)
+    Lecturer: "text-[#a48926]", // matches .bg-lecturer (gold text)
+    Task: "text-[#1e3a8a]", // matches .bg-task (deep navy)
+    Event: "text-[#77aa63]", // matches .bg-event (olive green)
+    Due: "text-[#d34b4b]", // matches .bg-deadline (maroon)
+    Exam: "text-[#d34b4b]", // also maroon for exams
   };
 
   const activeTypes = Object.entries(counts).filter(([_, count]) => count > 0);
@@ -360,7 +364,7 @@ function WeekBreakdownCard({
   return (
     <div className="p-6 rounded-xl gradient-card border border-border shadow-card">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+        <h3 className="text-sm font-semibold text-black">{title}</h3>
         <div className="text-primary">{icon}</div>
       </div>
 
@@ -373,7 +377,7 @@ function WeekBreakdownCard({
                 typeColors[type] || "text-foreground"
               }`}
             >
-              <span>{typeLabels[type] || type}</span>
+              <span className="font-semibold">{typeLabels[type] || type}</span>
               <span className="font-semibold">{count}</span>
             </li>
           ))}

@@ -74,10 +74,10 @@ export default function EventCard({
 
       if (onEventAdded) onEventAdded();
 
-      toast.success("✅ Task marked as completed");
+      toast.success("Task marked as completed");
       onComplete?.(event.id);
     } catch (err) {
-      toast.error("❌ Failed to update status");
+      toast.error("Failed to update status");
       console.error(err);
     } finally {
       setLoadingAction(false);
@@ -99,7 +99,7 @@ export default function EventCard({
       toast.success("🗑️ Event deleted successfully");
       onDelete?.(event.id);
     } catch (err) {
-      toast.error("❌ Failed to delete event");
+      toast.error("Failed to delete event");
       console.error(err);
     } finally {
       setLoadingAction(false);

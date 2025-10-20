@@ -100,7 +100,7 @@ export default function Upcoming({
               {format(selectedDayEvents[0].eventDate, "d")}
             </div>
             <div className="text-[10px] sm:text-xs text-muted-foreground uppercase">
-              {format(selectedDayEvents[0].eventDate, "EEE")}
+              {format(selectedDayEvents[0].eventDate, "MMMM")}
             </div>
           </div>
 

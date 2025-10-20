@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import EventCard from "@/components/EventCard";
@@ -19,7 +19,9 @@ export default function CompletedTab({ events }: { events: any[] }) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [selectedYear, setSelectedYear] = useState<string>("all");
 
+  // 🗓️ Month list
   const months = [
     "January",
     "February",
@@ -35,55 +37,89 @@ export default function CompletedTab({ events }: { events: any[] }) {
     "December",
   ];
 
+  // 🧠 Extract available years from completed events dynamically
+  const availableYears = useMemo(() => {
+    const years = Array.from(
+      new Set(completedEvents.map((e) => new Date(e.eventDate).getFullYear()))
+    ).sort((a, b) => b - a); // descending
+    return years;
+  }, [completedEvents]);
+
+  // 🧩 Filter logic
   const filtered = completedEvents.filter((e) => {
+    const eventDate = new Date(e.eventDate);
     const matchSearch = e.title
       ?.toLowerCase()
       .includes(searchQuery.toLowerCase());
 
     const matchMonth =
-      selectedMonth === "all" ||
-      format(new Date(e.eventDate), "MMMM") === selectedMonth;
+      selectedMonth === "all" || format(eventDate, "MMMM") === selectedMonth;
 
-    return matchSearch && matchMonth;
+    const matchYear =
+      selectedYear === "all" ||
+      eventDate.getFullYear().toString() === selectedYear;
+
+    return matchSearch && matchMonth && matchYear;
   });
 
   return (
-    <main className="container mx-auto px-2">
+    <main className="container mx-auto">
       <h1 className="text-3xl font-bold mb-4 flex items-center gap-2">
         <CheckCircle2 className="text-primary" /> Completed Tasks
       </h1>
 
       {/* Filters */}
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
+      <div className="grid md:grid-cols-[2fr,1fr,1fr] gap-4 mb-6">
+        {/* 🔍 Search */}
         <Input
           placeholder="Search by event name..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
 
-        {/* 🗓️ Filter by Month */}
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filter by month" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Months</SelectItem>
-            {months.map((month) => (
-              <SelectItem key={month} value={month}>
-                {month}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* 🗓️ Month + Year side by side */}
+        <div className="flex items-center gap-2">
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Month" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Months</SelectItem>
+              {months.map((month) => (
+                <SelectItem key={month} value={month}>
+                  {month}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {availableYears.map((year) => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* ✅ Completed Events List (max 10 visible, scrollable) */}
+      {/* ✅ Completed Events List */}
       {filtered.length > 0 ? (
         <div className="max-h-[350px] overflow-y-auto pr-2">
           <div className="space-y-3">
             {filtered.map((event, index) => (
-              <div key={event.id ?? index} className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-16 text-center">
+              <div
+                key={event.id ?? index}
+                className="p-3 flex items-center gap-3 rounded-xl border border-border bg-card shadow-sm"
+              >
+                {/* 📅 Date inside box */}
+                <div className="flex-shrink-0 text-center border-r border-border pr-3">
                   <div className="text-2xl font-bold text-primary">
                     {format(event.eventDate, "d")}
                   </div>
@@ -91,10 +127,14 @@ export default function CompletedTab({ events }: { events: any[] }) {
                     {format(event.eventDate, "MMM")}
                   </div>
                 </div>
+
+                {/* 📋 Event details */}
                 <div className="flex-1 opacity-75">
                   <EventCard event={event} variant="compact" />
                 </div>
-                <CheckCircle2 className="w-6 h-6 text-primary" />
+
+                {/* ✅ Hide icon on mobile */}
+                <CheckCircle2 className="w-6 h-6 text-primary hidden md:block" />
               </div>
             ))}
           </div>
