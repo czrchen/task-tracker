@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 export async function PATCH(
-    req: Request,
-    context: { params: { id: string } } // ✅ correct typing
+    req: NextRequest,
+    { params }: { params: Record<string, string> } // ✅ universal safe type
 ) {
     try {
-        const { id } = context.params; // ✅ Extract id properly
+        const id = params.id; // ✅ get dynamic route param
         const data = await req.json();
 
         const updatedEvent = await prisma.event.update({
