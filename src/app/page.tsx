@@ -374,7 +374,7 @@ export default function DashboardPage() {
           }}
         />
       )}
-      {activeTab === "completed" && <CompletedTab events={eventsForCalendar} />}
+      {activeTab === "completed" && <CompletedTab events={eventsForCalendar} selectedSemester={selectedSemester} />}
     </main>
   );
 }

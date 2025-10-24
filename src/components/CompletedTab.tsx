@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInCalendarWeeks } from "date-fns";
 import EventCard from "@/components/EventCard";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function CompletedTab({ events }: { events: any[] }) {
+export default function CompletedTab({
+  events,
+  selectedSemester,
+}: {
+  events: any[];
+  selectedSemester: any;
+}) {
   // ✅ Only show completed events
   const completedEvents = events.filter((e) => e.status === "completed");
 
@@ -36,6 +42,14 @@ export default function CompletedTab({ events }: { events: any[] }) {
     "November",
     "December",
   ];
+
+  const currentStudyWeek =
+    selectedSemester &&
+    differenceInCalendarWeeks(
+      new Date(),
+      new Date(selectedSemester.startDate),
+      { weekStartsOn: 0 }
+    ) + 1;
 
   // 🧠 Extract available years from completed events dynamically
   const availableYears = useMemo(() => {
@@ -130,7 +144,11 @@ export default function CompletedTab({ events }: { events: any[] }) {
 
                 {/* 📋 Event details */}
                 <div className="flex-1 opacity-75">
-                  <EventCard event={event} variant="compact" />
+                  <EventCard
+                    event={event}
+                    currentStudyWeek={currentStudyWeek}
+                    variant="compact"
+                  />
                 </div>
 
                 {/* ✅ Hide icon on mobile */}

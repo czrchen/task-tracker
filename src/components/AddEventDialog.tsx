@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Eclipse, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -28,21 +29,58 @@ export default function AddEventDialog({
   onEventAdded,
   defaultDate,
   onTemporaryEvent,
+  onTemporaryUpdate, // 🆕 add this
+  open: controlledOpen,
+  setOpen: setControlledOpen,
+  event,
 }: {
   selectedSemester?: any;
+  event?: any;
   onEventAdded?: () => void;
   defaultDate?: Date | null;
   onTemporaryEvent?: (tempEvent: any) => void;
+  onTemporaryUpdate?: (updatedEvent: any) => void; // 🆕
+  open?: boolean;
+  setOpen?: (v: boolean) => void;
 }) {
+  const isEditMode = !!event;
   const [open, setOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const actualOpen = isControlled ? controlledOpen : open;
+  const actualSetOpen = isControlled ? setControlledOpen! : setOpen;
+  function formatUTC(dateInput: string | Date) {
+    if (!dateInput) return "";
+    const d = new Date(dateInput);
+    const hours = d.getUTCHours().toString().padStart(2, "0");
+    const minutes = d.getUTCMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  }
+
   const [formData, setFormData] = useState({
-    name: "",
-    type: "",
-    date: "",
-    startTime: "",
-    endTime: "",
-    description: "",
+    name: event?.title || "",
+    type: event?.type || "",
+    date: event?.eventDate ? format(event.eventDate, "yyyy-MM-dd") : "",
+    startTime: event?.startTime ? formatUTC(event.startTime) : "",
+    endTime: event?.endTime ? formatUTC(event.endTime) : "",
+    description: event?.description || "",
   });
+
+  console.log("Event: ", event);
+
+  useEffect(() => {
+    if (actualOpen && event) {
+      setFormData({
+        name: event.title || "",
+        type: event.type || "",
+        date: event.eventDate
+          ? format(new Date(event.eventDate), "yyyy-MM-dd")
+          : "",
+        startTime: event.startTime ? formatUTC(event.startTime) : "",
+        endTime: event.endTime ? formatUTC(event.endTime) : "",
+        description: event.description || "",
+      });
+    }
+  }, [actualOpen, event?.id]);
 
   useEffect(() => {
     if (defaultDate) {
@@ -52,7 +90,7 @@ export default function AddEventDialog({
     }
   }, [defaultDate]);
 
-  const eventTypes = ["Task", "Event", "Due", "Exam"];
+  const eventTypes = ["Lecturer", "Tutorial", "Task", "Event", "Due", "Exam"];
 
   // ✅ Helper — add UTC offset to counteract backend's timezone conversion
   function buildLocalDateTime(date: string, time: string) {
@@ -90,59 +128,91 @@ export default function AddEventDialog({
       );
       const endDateTime = buildLocalDateTime(formData.date, formData.endTime);
 
-      const response = await fetch("/api/addEvents", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      if (isEditMode) {
+        // 🟢 PATCH existing event
+        const response = await fetch(`/api/addEvents/${event.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: formData.name,
+            description: formData.description,
+            type: formData.type,
+            eventDate: adjustedEventDate.toISOString(), // Adjusted date
+            startTime: startDateTime, // Adjusted time
+            endTime: endDateTime, // Adjusted time
+            status: eventStatus,
+            semesterId: selectedSemester?.id,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to update event");
+
+        const updatedEvent = {
+          ...event,
           title: formData.name,
           description: formData.description,
           type: formData.type,
-          eventDate: adjustedEventDate.toISOString(), // Adjusted date
-          startTime: startDateTime, // Adjusted time
-          endTime: endDateTime, // Adjusted time
+          eventDate: adjustedEventDate.toISOString(),
+          startTime: startDateTime,
+          endTime: endDateTime,
           status: eventStatus,
           semesterId: selectedSemester?.id,
-        }),
-      });
+        };
+        onTemporaryUpdate?.(updatedEvent);
+      } else {
+        const response = await fetch("/api/addEvents", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: formData.name,
+            description: formData.description,
+            type: formData.type,
+            eventDate: adjustedEventDate.toISOString(), // Adjusted date
+            startTime: startDateTime, // Adjusted time
+            endTime: endDateTime, // Adjusted time
+            status: eventStatus,
+            semesterId: selectedSemester?.id,
+          }),
+        });
+        if (!response.ok) throw new Error("Failed to create event");
 
-      if (!response.ok) throw new Error("Failed to create event");
+        // 🧠 1. Create a temporary event
+        const tempId = `temp-${Math.random().toString(36).substr(2, 9)}`;
+        const tempEvent = {
+          id: tempId,
+          title: formData.name,
+          description: formData.description,
+          type: formData.type,
+          eventDate: adjustedEventDate.toISOString(),
+          startTime: startDateTime,
+          endTime: endDateTime,
+          status: eventStatus,
+          semesterId: selectedSemester?.id,
+        };
 
-      // 🧠 1. Create a temporary event
-      const tempId = `temp-${Math.random().toString(36).substr(2, 9)}`;
-      const tempEvent = {
-        id: tempId,
-        title: formData.name,
-        description: formData.description,
-        type: formData.type,
-        eventDate: adjustedEventDate.toISOString(),
-        startTime: startDateTime,
-        endTime: endDateTime,
-        status: eventStatus,
-        semesterId: selectedSemester?.id,
-      };
+        // ✅ Push it instantly to UI
+        onTemporaryEvent?.(tempEvent);
 
-      // ✅ Push it instantly to UI
-      onTemporaryEvent?.(tempEvent);
-
-      toast.success("Event added successfully!", {
-        description: `${formData.name} (${formData.type}) has been added for ${formData.date}.`,
-      });
+        toast.success("Event added successfully!", {
+          description: `${formData.name} (${formData.type}) has been added for ${formData.date}.`,
+        });
+      }
 
       // ✅ Trigger parent refetch
       if (onEventAdded) onEventAdded();
 
-      // Reset form
-      setFormData({
+      // Reset form but keep the last date
+      setFormData((prev) => ({
         name: "",
         type: "",
-        date: "",
+        date: prev.date, // keep last selected date
         startTime: "",
         endTime: "",
         description: "",
-      });
-      setOpen(false);
+      }));
+      actualSetOpen(false);
     } catch (error) {
       console.error(error);
       toast.error("Failed to add event", {
@@ -151,22 +221,39 @@ export default function AddEventDialog({
     }
   };
 
+  function handleClose() {
+    setFormData((prev) => ({
+      name: "",
+      type: "",
+      date: prev.date,
+      startTime: "",
+      endTime: "",
+      description: "",
+    }));
+    actualSetOpen(false);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={actualOpen}
+      onOpenChange={(val) => {
+        if (!val) handleClose();
+        else actualSetOpen(val);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button className="gradient-primary shadow-elegant hover:shadow-hover transition-spring">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Event
-        </Button>
+        <Button>Add Event</Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold">
-            Create New Event
+            {isEditMode ? "Edit Event" : "Create New Event"}
           </DialogTitle>
           <DialogDescription>
-            Add a new event to your daily schedule.
+            {isEditMode
+              ? "Modify event details and update your schedule."
+              : "Add a new event to your daily schedule."}
           </DialogDescription>
         </DialogHeader>
 
@@ -276,7 +363,7 @@ export default function AddEventDialog({
               Cancel
             </Button>
             <Button type="submit" className="flex-1 gradient-primary">
-              Create Event
+              {isEditMode ? "Update Event" : "Create Event"}
             </Button>
           </div>
         </form>

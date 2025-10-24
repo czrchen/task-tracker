@@ -15,6 +15,7 @@ import {
   isSameDay,
   isSameWeek,
   isToday,
+  differenceInCalendarWeeks,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,8 @@ export default function CalendarTab({
   const [isMobile, setIsMobile] = useState(false);
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
   const [localEvents, setLocalEvents] = useState(events);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
   useEffect(() => {
     setLocalEvents(events);
@@ -105,6 +108,14 @@ export default function CalendarTab({
   }, [currentMonth]);
 
   // Selected week info
+  const currentStudyWeek =
+    selectedSemester &&
+    differenceInCalendarWeeks(
+      new Date(),
+      new Date(selectedSemester.startDate),
+      { weekStartsOn: 0 }
+    ) + 1;
+
   const currentWeek = weeksInMonth[selectedWeekIndex] || weeksInMonth[0];
   const currentWeekStart = currentWeek.start;
   const currentWeekEnd = currentWeek.end;
@@ -117,7 +128,16 @@ export default function CalendarTab({
   // Filter days that actually have events
   const daysWithEvents = Array.from({ length: 7 })
     .map((_, i) => addDays(currentWeekStart, i))
-    .filter((day) => weekEvents.some((e) => isSameDay(e.eventDate, day)))
+    .filter((day) => {
+      // ✅ Keep only days with events
+      const hasEvents = weekEvents.some((e) => isSameDay(e.eventDate, day));
+
+      // ✅ Keep only today or future days
+      const isFutureOrToday =
+        isSameDay(day, today) || day.getTime() > today.getTime();
+
+      return hasEvents && isFutureOrToday;
+    })
     .sort((a, b) => a.getTime() - b.getTime());
 
   // Auto-select first available day when switching week
@@ -149,6 +169,12 @@ export default function CalendarTab({
   const handleCompleteTask = (eventId: string) => {
     setLocalEvents((prev) =>
       prev.map((e) => (e.id === eventId ? { ...e, status: "completed" } : e))
+    );
+  };
+
+  const handleTemporaryUpdate = (updatedEvent: any) => {
+    setLocalEvents((prev) =>
+      prev.map((e) => (e.id === updatedEvent.id ? { ...updatedEvent } : e))
     );
   };
 
@@ -203,9 +229,16 @@ export default function CalendarTab({
 
           <AddEventDialog
             selectedSemester={selectedSemester}
+            event={selectedEvent}
+            open={openDialog}
+            setOpen={(val) => {
+              if (!val) setSelectedEvent(null); // 🔥 reset event after close
+              setOpenDialog(val);
+            }}
             onEventAdded={onEventAdded}
-            defaultDate={selectedDate}
             onTemporaryEvent={handleTemporaryEvent}
+            onTemporaryUpdate={handleTemporaryUpdate}
+            defaultDate={selectedDate}
           />
         </div>
 
@@ -250,15 +283,24 @@ export default function CalendarTab({
             {selectedDayEvents.length > 0 ? (
               <div className="space-y-3">
                 {selectedDayEvents.map((event) => (
-                  <EventCard
+                  <div
                     key={event.id}
-                    event={event}
-                    variant="compact"
-                    showCheckbox
-                    onEventAdded={onEventAdded}
-                    onComplete={handleCompleteTask}
-                    onDelete={handleDeleteTask}
-                  />
+                    onClick={() => {
+                      setSelectedEvent(event);
+                      setOpenDialog(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <EventCard
+                      event={event}
+                      variant="compact"
+                      showCheckbox
+                      onEventAdded={onEventAdded}
+                      onComplete={handleCompleteTask}
+                      onDelete={handleDeleteTask}
+                      currentStudyWeek={currentStudyWeek}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -266,6 +308,23 @@ export default function CalendarTab({
                 No events for this day
               </div>
             )}
+
+            {/* ✅ Controlled AddEventDialog for editing */}
+            <div className="hidden">
+              <AddEventDialog
+                selectedSemester={selectedSemester}
+                event={selectedEvent}
+                open={openDialog}
+                setOpen={(val) => {
+                  if (!val) setSelectedEvent(null); // 🔥 reset event after close
+                  setOpenDialog(val);
+                }}
+                onEventAdded={onEventAdded}
+                onTemporaryEvent={handleTemporaryEvent}
+                onTemporaryUpdate={handleTemporaryUpdate}
+                defaultDate={selectedDate}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -346,10 +405,7 @@ export default function CalendarTab({
               {dayEvents
                 .sort((a, b) => {
                   const priority = (event: any) => {
-                    if (
-                      event.status === "completed" &&
-                      event.type === "Due"
-                    )
+                    if (event.status === "completed" && event.type === "Due")
                       return 99; // 🟢 push completed ones to bottom
                     if (event.type === "Due") return 1;
                     if (event.type === "Exam") return 2;
@@ -435,6 +491,14 @@ export default function CalendarTab({
               onEventAdded={onEventAdded}
               defaultDate={selectedDate}
               onTemporaryEvent={handleTemporaryEvent}
+              onTemporaryUpdate={handleTemporaryUpdate}
+              // control dialog manually
+              open={openDialog}
+              setOpen={(val) => {
+                if (!val) setSelectedEvent(null); // 🔥 reset event after close
+                setOpenDialog(val);
+              }}
+              event={selectedEvent}
             />
           </div>
         </div>
@@ -454,15 +518,24 @@ export default function CalendarTab({
           {selectedDateEvents.length > 0 ? (
             <div className="space-y-3">
               {selectedDateEvents.map((event) => (
-                <EventCard
+                <div
                   key={event.id}
-                  event={event}
-                  variant="compact"
-                  showCheckbox
-                  onEventAdded={onEventAdded}
-                  onComplete={handleCompleteTask}
-                  onDelete={handleDeleteTask}
-                />
+                  onClick={() => {
+                    setSelectedEvent(event);
+                    setOpenDialog(true);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <EventCard
+                    event={event}
+                    variant="compact"
+                    showCheckbox
+                    onEventAdded={onEventAdded}
+                    onComplete={handleCompleteTask}
+                    onDelete={handleDeleteTask}
+                    currentStudyWeek={currentStudyWeek}
+                  />
+                </div>
               ))}
             </div>
           ) : (

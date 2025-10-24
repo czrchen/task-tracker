@@ -13,6 +13,7 @@ export default function EventCard({
   onComplete,
   onDelete,
   onEventAdded,
+  currentStudyWeek,
 }: {
   event: any;
   variant?: "default" | "compact";
@@ -20,6 +21,7 @@ export default function EventCard({
   onComplete?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEventAdded?: () => void;
+  currentStudyWeek: any;
 }) {
   const [loadingAction, setLoadingAction] = useState(false);
 
@@ -159,7 +161,10 @@ export default function EventCard({
                   type="checkbox"
                   className="w-4 h-4 cursor-pointer accent-primary"
                   disabled={loadingAction}
-                  onChange={handleMarkComplete}
+                  onChange={(e) => {
+                    e.stopPropagation(); // ✅ prevent modal open
+                    handleMarkComplete();
+                  }}
                 />
               )}
             </>
@@ -172,7 +177,10 @@ export default function EventCard({
               size="icon"
               className="hover:bg-red-100 hover:text-red-600"
               disabled={loadingAction}
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.stopPropagation(); // ✅ prevent modal open
+                handleDelete();
+              }}
             >
               {loadingAction ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
