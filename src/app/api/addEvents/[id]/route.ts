@@ -3,10 +3,10 @@ import prisma from "@/lib/prisma";
 
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: Record<string, string> } // ✅ universal safe type
+    { params }: { params: Promise<{ id: string }> } // ✅ Next.js 15: params is a Promise
 ) {
     try {
-        const id = params.id; // ✅ get dynamic route param
+        const { id } = await params; // ✅ Await the params
         const data = await req.json();
 
         const updatedEvent = await prisma.event.update({
@@ -16,8 +16,8 @@ export async function PATCH(
                 description: data.description,
                 type: data.type,
                 eventDate: new Date(data.eventDate),
-                startTime: new Date(data.startTime),
-                endTime: new Date(data.endTime),
+                startTime: data.startTime ? new Date(data.startTime) : null,
+                endTime: data.endTime ? new Date(data.endTime) : null,
                 status: data.status,
             },
         });
