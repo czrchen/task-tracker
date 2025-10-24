@@ -3,12 +3,14 @@ import prisma from "@/lib/prisma";
 
 export async function PATCH(
     req: Request,
-    { params }: { params: { id: string } }
-): Promise<Response> {
+    context: { params: { id: string } } // ✅ correct typing
+) {
     try {
+        const { id } = context.params; // ✅ Extract id properly
         const data = await req.json();
+
         const updatedEvent = await prisma.event.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 title: data.title,
                 description: data.description,
@@ -19,9 +21,13 @@ export async function PATCH(
                 status: data.status,
             },
         });
+
         return NextResponse.json(updatedEvent);
     } catch (error) {
         console.error("Error updating event:", error);
-        return NextResponse.json({ error: "Failed to update event" }, { status: 500 });
+        return NextResponse.json(
+            { error: "Failed to update event" },
+            { status: 500 }
+        );
     }
 }
