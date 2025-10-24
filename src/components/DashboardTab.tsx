@@ -270,7 +270,6 @@ export default function DashboardTab({
                 onEventAdded={onEventAdded}
                 onComplete={handleCompleteTask}
                 onDelete={handleDeleteTask}
-                currentStudyWeek={currentWeek}
               />
             ))}
           </div>

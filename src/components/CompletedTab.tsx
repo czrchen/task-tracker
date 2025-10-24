@@ -146,7 +146,6 @@ export default function CompletedTab({
                 <div className="flex-1 opacity-75">
                   <EventCard
                     event={event}
-                    currentStudyWeek={currentStudyWeek}
                     variant="compact"
                   />
                 </div>

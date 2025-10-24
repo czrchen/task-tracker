@@ -13,7 +13,6 @@ export default function EventCard({
   onComplete,
   onDelete,
   onEventAdded,
-  currentStudyWeek,
 }: {
   event: any;
   variant?: "default" | "compact";
@@ -21,7 +20,6 @@ export default function EventCard({
   onComplete?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEventAdded?: () => void;
-  currentStudyWeek: any;
 }) {
   const [loadingAction, setLoadingAction] = useState(false);
 

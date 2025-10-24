@@ -298,7 +298,6 @@ export default function CalendarTab({
                       onEventAdded={onEventAdded}
                       onComplete={handleCompleteTask}
                       onDelete={handleDeleteTask}
-                      currentStudyWeek={currentStudyWeek}
                     />
                   </div>
                 ))}
@@ -533,7 +532,6 @@ export default function CalendarTab({
                     onEventAdded={onEventAdded}
                     onComplete={handleCompleteTask}
                     onDelete={handleDeleteTask}
-                    currentStudyWeek={currentStudyWeek}
                   />
                 </div>
               ))}
