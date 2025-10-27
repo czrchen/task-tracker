@@ -52,11 +52,11 @@ export default function DashboardTab({
   };
 
   const getStartDateTimeUTC = (event: any) => {
-    if (!event.startTime) return null;
-    const startDateTime = new Date(event.eventDate);
-    const start = new Date(event.startTime);
+    if (!event.startTime || !event.eventDate) return null;
+    const startDateTime = new Date(event.eventDate); // e.g. 2025-10-29
+    const start = new Date(event.startTime); // e.g. 1970-01-01T15:00:00Z
     startDateTime.setUTCHours(start.getUTCHours(), start.getUTCMinutes());
-    return startDateTime;
+    return startDateTime; // → 2025-10-29T15:00:00Z
   };
 
   // ✅ Calculate current week
@@ -87,6 +87,10 @@ export default function DashboardTab({
       return startA.getTime() - startB.getTime();
     });
 
+  localEvents.forEach((e) => {
+    console.log(e.title, getStartDateTimeUTC(e)?.toISOString());
+  });
+
   // ✅ Upcoming events this week — same UTC comparison
   const upcomingEvents = localEvents
     .filter((e) => {
@@ -101,8 +105,6 @@ export default function DashboardTab({
       );
     })
     .sort((a, b) => {
-      const dateDiff = a.eventDate.getTime() - b.eventDate.getTime();
-      if (dateDiff !== 0) return dateDiff;
       const startA = getStartDateTimeUTC(a);
       const startB = getStartDateTimeUTC(b);
       if (!startA || !startB) return 0;

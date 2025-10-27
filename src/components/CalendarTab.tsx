@@ -129,16 +129,12 @@ export default function CalendarTab({
   const daysWithEvents = Array.from({ length: 7 })
     .map((_, i) => addDays(currentWeekStart, i))
     .filter((day) => {
-      // ✅ Keep only days with events
       const hasEvents = weekEvents.some((e) => isSameDay(e.eventDate, day));
-
-      // ✅ Keep only today or future days
       const isFutureOrToday =
         isSameDay(day, today) || day.getTime() > today.getTime();
-
       return hasEvents && isFutureOrToday;
     })
-    .sort((a, b) => a.getTime() - b.getTime());
+    .sort((a, b) => a.getTime() - b.getTime()); // ✅ keep this
 
   // Auto-select first available day when switching week
   useEffect(() => {
@@ -152,7 +148,14 @@ export default function CalendarTab({
 
   // Events for selected day
   const selectedDayEvents = selectedDate
-    ? weekEvents.filter((e) => isSameDay(e.eventDate, selectedDate))
+    ? weekEvents
+        .filter((e) => isSameDay(e.eventDate, selectedDate))
+        .sort((a, b) => {
+          const startA = getStartDateTimeUTC(a);
+          const startB = getStartDateTimeUTC(b);
+          if (!startA || !startB) return 0;
+          return startA.getTime() - startB.getTime();
+        })
     : [];
 
   // Navigation
@@ -460,8 +463,23 @@ export default function CalendarTab({
     return <div className="space-y-2">{rows}</div>;
   };
 
+  function getStartDateTimeUTC(event: any) {
+    if (!event.startTime || !event.eventDate) return null;
+    const startDateTime = new Date(event.eventDate);
+    const start = new Date(event.startTime);
+    startDateTime.setUTCHours(start.getUTCHours(), start.getUTCMinutes());
+    return startDateTime;
+  }
+
   const selectedDateEvents = selectedDate
-    ? localEvents.filter((e) => isSameDay(e.eventDate, selectedDate))
+    ? localEvents
+        .filter((e) => isSameDay(e.eventDate, selectedDate))
+        .sort((a, b) => {
+          const startA = getStartDateTimeUTC(a);
+          const startB = getStartDateTimeUTC(b);
+          if (!startA || !startB) return 0;
+          return startA.getTime() - startB.getTime();
+        })
     : [];
 
   return (

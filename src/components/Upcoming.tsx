@@ -26,13 +26,30 @@ export default function Upcoming({
   // 🗓️ Days array (Sunday-first)
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  // 🧩 Group events by weekday (only current week)
+  // 🕒 Merge eventDate + startTime (UTC-safe)
+  function getStartDateTimeUTC(event: any) {
+    if (!event.startTime || !event.eventDate) return null;
+    const startDateTime = new Date(event.eventDate);
+    const start = new Date(event.startTime);
+    startDateTime.setUTCHours(start.getUTCHours(), start.getUTCMinutes());
+    return startDateTime;
+  }
+
+  // 🧩 Group + sort events by weekday (only current week)
   const eventsByDay = daysOfWeek.map((_, dayIndex) =>
-    localEvents.filter(
-      (e: any) =>
-        isSameWeek(e.eventDate, now, { weekStartsOn: 0 }) &&
-        new Date(e.eventDate).getDay() === dayIndex
-    )
+    localEvents
+      .filter(
+        (e: any) =>
+          isSameWeek(e.eventDate, now, { weekStartsOn: 0 }) &&
+          new Date(e.eventDate).getDay() === dayIndex
+      )
+      // ✅ Sort each day's events chronologically
+      .sort((a, b) => {
+        const startA = getStartDateTimeUTC(a);
+        const startB = getStartDateTimeUTC(b);
+        if (!startA || !startB) return 0;
+        return startA.getTime() - startB.getTime();
+      })
   );
 
   // ✅ Triggered only after successful PATCH (from EventCard)
