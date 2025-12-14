@@ -56,6 +56,8 @@ export default function AddEventDialog({
     return `${hours}:${minutes}`;
   }
 
+  const [repeatWeeks, setRepeatWeeks] = useState<number>(0);
+
   const [formData, setFormData] = useState({
     name: event?.title || "",
     type: event?.type || "",
@@ -90,7 +92,8 @@ export default function AddEventDialog({
     }
   }, [defaultDate]);
 
-  const eventTypes = ["Lecturer", "Tutorial", "Task", "Event", "Due", "Exam"];
+  // const eventTypes = ["Lecturer", "Tutorial", "Task", "Event", "Due", "Exam"];
+  const eventTypes = ["Task", "Event", "Due", "Exam"];
 
   // ✅ Helper — add UTC offset to counteract backend's timezone conversion
   function buildLocalDateTime(date: string, time: string) {
@@ -106,6 +109,12 @@ export default function AddEventDialog({
 
     // Return as ISO string (backend will convert this to UTC, resulting in original input time)
     return adjustedDate.toISOString();
+  }
+
+  function addDays(date: Date, days: number) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -160,43 +169,58 @@ export default function AddEventDialog({
         };
         onTemporaryUpdate?.(updatedEvent);
       } else {
-        const response = await fetch("/api/addEvents", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title: formData.name,
-            description: formData.description,
-            type: formData.type,
-            eventDate: adjustedEventDate.toISOString(), // Adjusted date
-            startTime: startDateTime, // Adjusted time
-            endTime: endDateTime, // Adjusted time
-            status: eventStatus,
-            semesterId: selectedSemester?.id,
-          }),
-        });
-        if (!response.ok) throw new Error("Failed to create event");
+        const baseDate = new Date(formData.date);
+        const totalEvents = repeatWeeks > 0 ? repeatWeeks + 1 : 1;
 
-        // 🧠 1. Create a temporary event
-        const tempId = `temp-${Math.random().toString(36).substr(2, 9)}`;
-        const tempEvent = {
-          id: tempId,
-          title: formData.name,
-          description: formData.description,
-          type: formData.type,
-          eventDate: adjustedEventDate.toISOString(),
-          startTime: startDateTime,
-          endTime: endDateTime,
-          status: eventStatus,
-          semesterId: selectedSemester?.id,
-        };
+        for (let i = 0; i < totalEvents; i++) {
+          const currentDate = addDays(baseDate, i * 7);
 
-        // ✅ Push it instantly to UI
-        onTemporaryEvent?.(tempEvent);
+          const offsetMs = currentDate.getTimezoneOffset() * 60 * 1000;
+          const adjustedEventDate = new Date(currentDate.getTime() - offsetMs);
 
-        toast.success("Event added successfully!", {
-          description: `${formData.name} (${formData.type}) has been added for ${formData.date}.`,
+          const dateStr = adjustedEventDate.toISOString().split("T")[0];
+
+          const startDateTime = buildLocalDateTime(dateStr, formData.startTime);
+          const endDateTime = buildLocalDateTime(dateStr, formData.endTime);
+
+          await fetch("/api/addEvents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: formData.name,
+              description: formData.description,
+              type: formData.type,
+              eventDate: adjustedEventDate.toISOString(),
+              startTime: startDateTime,
+              endTime: endDateTime,
+              status: eventStatus,
+              semesterId: selectedSemester?.id,
+            }),
+          });
+
+          // Optional: optimistic UI for the first event only
+          if (i === 0) {
+            const tempEvent = {
+              id: `temp-${Math.random().toString(36).substr(2, 9)}`,
+              title: formData.name,
+              description: formData.description,
+              type: formData.type,
+              eventDate: adjustedEventDate.toISOString(),
+              startTime: startDateTime,
+              endTime: endDateTime,
+              status: eventStatus,
+              semesterId: selectedSemester?.id,
+            };
+
+            onTemporaryEvent?.(tempEvent);
+          }
+        }
+
+        toast.success("Event(s) added successfully", {
+          description:
+            repeatWeeks > 0
+              ? `Event repeated for ${repeatWeeks} consecutive weeks.`
+              : "Event created successfully.",
         });
       }
 
@@ -230,6 +254,7 @@ export default function AddEventDialog({
       endTime: "",
       description: "",
     }));
+    setRepeatWeeks(0);
     actualSetOpen(false);
   }
 
@@ -308,6 +333,25 @@ export default function AddEventDialog({
               required
             />
           </div>
+
+          {/* Repeat Weekly */}
+          {!isEditMode && (
+            <div className="space-y-2">
+              <Label htmlFor="repeatWeeks">
+                Repeat for next weeks (optional)
+              </Label>
+              <Input
+                id="repeatWeeks"
+                type="number"
+                min={0}
+                placeholder="E.g. 4"
+                value={repeatWeeks}
+                onChange={(e) =>
+                  setRepeatWeeks(Math.max(0, Number(e.target.value)))
+                }
+              />
+            </div>
+          )}
 
           {/* Time Range */}
           <div className="grid grid-cols-2 gap-4">

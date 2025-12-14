@@ -262,7 +262,7 @@ export default function DashboardPage() {
               <Calendar className="w-5 h-5 text-black-400" />
             </div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Hazel&apos;s
+              czr0ng&apos;s
             </h1>
           </div>
 
@@ -374,7 +374,12 @@ export default function DashboardPage() {
           }}
         />
       )}
-      {activeTab === "completed" && <CompletedTab events={eventsForCalendar} selectedSemester={selectedSemester} />}
+      {activeTab === "completed" && (
+        <CompletedTab
+          events={eventsForCalendar}
+          selectedSemester={selectedSemester}
+        />
+      )}
     </main>
   );
 }

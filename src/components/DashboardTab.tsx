@@ -141,7 +141,7 @@ export default function DashboardTab({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-              Welcome back {user?.name || "Student"}!
+              Welcome back {user?.name}!
             </h1>
             <p className="text-muted-foreground flex items-center gap-2">
               {format(today, "EEEE, MMMM d, yyyy")}
@@ -150,7 +150,7 @@ export default function DashboardTab({
         </div>
 
         {/* Semester info */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">Current Semester:</p>
             <span className="text-sm font-medium bg-accent px-3 py-1 rounded-md border">
@@ -164,7 +164,7 @@ export default function DashboardTab({
             </span>{" "}
             of {selectedSemester?.name ?? "N/A"}
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Stats */}
